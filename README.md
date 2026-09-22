@@ -340,9 +340,7 @@ implementación mínima para pasarla.
 
 ### Análisis estático — SonarQube
 
-> ⚠️ Pendiente: el análisis con Sonar no pudo cargarse en este corte por un problema con la
-> instancia local/servidor. Se agregará la evidencia (issues, code smells, duplicated lines,
-> security hotspots) tan pronto quede disponible.
+Me genero error localmente, por internet de la escuela. En la casa lo vuelvo a hacer y lo coloco.
 
 ---
 
