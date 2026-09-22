@@ -289,23 +289,23 @@ descripción de la regla de negocio asociada y los códigos de respuesta esperad
 
 **Vista general de los grupos de endpoints (Tags)**
 
-![Swagger general](docs/evidence/swagger-general.png)
+![Swagger general](docs/uml/swagger-general.png)
 
 **Grupo Platos**
 
-![Swagger Platos](docs/evidence/swagger-platos.png)
+![Swagger Platos](docs/uml/swagger-platos.png)
 
 **Grupo Pedidos**
 
-![Swagger Pedidos](docs/evidence/swagger-pedidos.png)
+![Swagger Pedidos](docs/uml/swagger-pedidos.png)
 
 **Ejemplo de respuesta exitosa (201 Created)**
 
-![Swagger ejemplo 201](docs/evidence/swagger-ejemplo-201.png)
+![Swagger ejemplo 201](docs/uml/swagger-ejemplo-201.png)
 
 **Ejemplo de manejo de errores y validaciones (422 Unprocessable Entity)**
 
-![Swagger ejemplo 422](docs/evidence/swagger-ejemplo-422.png)
+![Swagger ejemplo 422](docs/uml/swagger-ejemplo-422.png)
 
 ---
 
@@ -318,25 +318,25 @@ implementación mínima para pasarla.
 
 **Prueba en rojo (falla antes de implementar)**
 
-![TDD rojo](docs/evidence/tdd-red.png)
+![TDD rojo](docs/uml/tdd-red.png)
 
 **Prueba en verde (pasa tras implementar)**
 
-![TDD verde](docs/evidence/tdd-green.png)
+![TDD verde](docs/uml/tdd-green.png)
 
 ### Cobertura — JaCoCo
 
 **Cobertura antes de completar las pruebas**
 
-![JaCoCo antes](docs/evidence/jacoco-antes.png)
+![JaCoCo antes](docs/uml/jacoco-antes.png)
 
 **Cobertura final del proyecto**
 
-![JaCoCo final](docs/evidence/jacoco-final.png)
+![JaCoCo final](docs/uml/jacoco-final.png)
 
 **Reporte detallado de cobertura por paquete**
 
-![Cobertura JaCoCo](docs/evidence/cobertura-jacoco.png)
+![Cobertura JaCoCo](docs/uml/cobertura-jacoco.png)
 
 ### Análisis estático — SonarQube
 
