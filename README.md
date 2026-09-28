@@ -67,95 +67,72 @@ El MVP valida el ciclo **carta → pedido → cocina → pago** antes de escalar
 
 ```mermaid
 classDiagram
-    class Usuario {
-        <<abstract>>
-        -Long id
-        -String nombre
-        -String correo
-        -String contrasena
-        -Rol rol
-    }
-    Usuario <|-- Cliente
-    Usuario <|-- Mesero
-    Usuario <|-- Parrillero
-    Usuario <|-- Administrador
-
+    direction TB
+ 
     class Mesa {
         -Long id
-        -int numero
+        -Integer numero
+        -Integer capacidad
         -EstadoMesa estado
+        -Boolean cuentaAbierta
     }
     class Cuenta {
         -Long id
+        -Long idMesa
+        -Double total
         -EstadoCuenta estado
-        -LocalDateTime apertura
-        +calcularTotal()
+        -LocalDateTime fechaApertura
+        -LocalDateTime fechaCierre
+        -MedioPago medioPago
+        -Double montoRecibido
+        -Double cambio
     }
     class Pedido {
         -Long id
+        -Long idMesa
         -EstadoPedido estado
-        -LocalDateTime confirmadoEn
-        +puedeModificarse()
+        -LocalDateTime timestamp
+    }
+    class Reserva {
+        -Long id
+        -Long idMesa
+        -String cliente
+        -LocalDateTime fechaHora
+        -Integer comensales
+        -EstadoReserva estado
     }
     class ItemPedido {
         -Long id
-        -int cantidad
-        -double precioUnitario
+        -Long idPlato
+        -String nombrePlato
+        -String categoria
+        -Double precioCongelado
+        -Integer cantidad
         -TerminoCoccion terminoCoccion
         -String observaciones
-        +subtotal()
     }
     class Plato {
         -Long id
         -String nombre
-        -double precio
-        -boolean esCorte
-        -int minutosPreparacion
-        -boolean activo
-        +estaDisponible()
+        -Double precio
+        -String categoria
+        -String descripcion
+        -Boolean disponible
+        -Integer tiempoPreparacionMin
     }
-    class Categoria {
+    class RegistroVehiculo {
         -Long id
-        -String nombre
+        -String placa
+        -LocalDateTime entrada
+        -LocalDateTime salida
+        -Double cobro
     }
-    class Ingrediente {
-        -Long id
-        -String nombre
-        -boolean agotado
-    }
-    class Parrilla {
-        -int capacidadMaxima = 8
-        -int cortesActivos
-        +tieneCupo()
-    }
-    class Pago {
-        -Long id
-        -MedioPago medio
-        -double monto
-        -String comprobante
-    }
-    class Factura {
-        -Long id
-        -String numero
-    }
-    class RegistroAuditoria {
-        -Long id
-        -EstadoPedido estadoAnterior
-        -EstadoPedido estadoNuevo
-        -LocalDateTime fecha
-    }
-
-    Mesa "1" --> "0..1" Cuenta : cuenta abierta
-    Cuenta "1" *-- "*" Pedido
-    Pedido "1" *-- "*" ItemPedido
-    ItemPedido "*" --> "1" Plato
-    Plato "*" --> "1" Categoria
-    Plato "*" --> "*" Ingrediente
-    Cuenta "1" --> "0..1" Pago
-    Pago "1" --> "1" Factura
-    Pedido "1" --> "*" RegistroAuditoria
-    RegistroAuditoria "*" --> "1" Usuario
-    Mesero "1" --> "*" Pedido
+ 
+    Mesa "1" -- "0..*" Cuenta : tiene
+    Mesa "1" -- "0..*" Pedido : registra
+    Mesa "1" -- "0..*" Reserva : tiene
+    Pedido "1" *-- "1..*" ItemPedido : contiene
+    ItemPedido "0..*" -- "1" Plato : corresponde a
 ```
 
 ### Estados del pedido
