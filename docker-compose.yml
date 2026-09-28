@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: brasaviva-db
+    environment:
+      POSTGRES_DB: brasaviva
+      POSTGRES_USER: brasaviva
+      POSTGRES_PASSWORD: brasaviva
+    ports:
+      - "5432:5432"
+    volumes:
+      - brasaviva-data:/var/lib/postgresql/data
+
+volumes:
+  brasaviva-data:
