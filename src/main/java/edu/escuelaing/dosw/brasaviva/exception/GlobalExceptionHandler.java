@@ -6,10 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,20 +20,37 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex,
-                                                        HttpServletRequest req) {
+    // ---------- Excepciones de dominio ----------
+
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> handleNoEncontrado(RecursoNoEncontradoException ex,
+                                                            HttpServletRequest req) {
         log.warn("Recurso no encontrado: {}", ex.getMessage());
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), req, List.of());
     }
 
-    @ExceptionHandler(BusinessRuleException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex,
-                                                            HttpServletRequest req) {
-        log.warn("Regla de negocio violada [{}]: {}", ex.getCode(), ex.getMessage());
-        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), req,
-                List.of("Regla: " + ex.getCode()));
+    @ExceptionHandler(ConflictoException.class)
+    public ResponseEntity<ErrorResponse> handleConflicto(ConflictoException ex,
+                                                         HttpServletRequest req) {
+        log.warn("Conflicto: {}", ex.getMessage());
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req, List.of());
     }
+
+    @ExceptionHandler(ReglaNegocioException.class)
+    public ResponseEntity<ErrorResponse> handleReglaNegocio(ReglaNegocioException ex,
+                                                            HttpServletRequest req) {
+        log.warn("Regla de negocio violada ({}): {}", ex.getClass().getSimpleName(), ex.getMessage());
+        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), req, List.of());
+    }
+
+    @ExceptionHandler(SolicitudInvalidaException.class)
+    public ResponseEntity<ErrorResponse> handleSolicitudInvalida(SolicitudInvalidaException ex,
+                                                                 HttpServletRequest req) {
+        log.warn("Solicitud inválida: {}", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, List.of());
+    }
+
+    // ---------- Validación de input (@Valid) ----------
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleBodyValidation(MethodArgumentNotValidException ex,
@@ -55,16 +74,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex,
                                                           HttpServletRequest req) {
-        return build(HttpStatus.BAD_REQUEST, "El cuerpo de la petición es inválido o está mal formado",
-                req, List.of());
+        return build(HttpStatus.BAD_REQUEST,
+                "El cuerpo de la petición es inválido o está mal formado", req, List.of());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
                                                             HttpServletRequest req) {
-        String msg = "El parámetro '" + ex.getName() + "' tiene un valor inválido";
-        return build(HttpStatus.BAD_REQUEST, msg, req, List.of());
+        return build(HttpStatus.BAD_REQUEST,
+                "El parámetro '" + ex.getName() + "' tiene un valor inválido", req, List.of());
     }
+
+    // ---------- Errores de Spring MVC (evitan que caigan como 500) ----------
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex,
+                                                          HttpServletRequest req) {
+        return build(HttpStatus.NOT_FOUND, "Ruta no encontrada", req, List.of());
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+                                                                  HttpServletRequest req) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "Método HTTP no permitido", req, List.of());
+    }
+
+    // ---------- Fallback ----------
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest req) {
