@@ -1,4 +1,4 @@
-# LA BRASA VIVA 🔥
+# LA BRASA VIVA 
 
 **Bitácora Corte 2 — Desarrollo y Operaciones de Software (DOSW)**
 Escuela Colombiana de Ingeniería Julio Garavito
@@ -28,6 +28,30 @@ El MVP valida el ciclo **carta → pedido → cocina → pago** antes de escalar
 | Mesero | Toma y modifica órdenes, las envía a cocina y cierra la cuenta |
 | Parrillero / Cocina | Opera el tablero de cocina, actualiza estados y marca ingredientes agotados |
 | Administrador | Administra carta, inventario y usuarios, y consulta reportes de venta |
+
+### Roles y permisos
+
+| Funcionalidad | Cliente | Mesero | Parrillero / Cocina | Administrador |
+|---|:-:|:-:|:-:|:-:|
+| Ver el menú | ✅ | ✅ | ✅ | ✅ |
+| Crear, editar y eliminar platos | ❌ | ❌ | ❌ | ✅ |
+| Marcar un plato como agotado | ❌ | ❌ | ✅ | ✅ |
+| Crear pedido / agregar ítems (solo en `RECIBIDO`) | ✅ | ✅ | ❌ | ❌ |
+| Cancelar un pedido (solo en `RECIBIDO`) | ❌ | ✅ | ❌ | ✅ |
+| Ver el estado de su pedido | ✅ | ✅ | ✅ | ✅ |
+| Ver el tablero de cocina | ❌ | ✅ | ✅ | ✅ |
+| Cambiar estado a `EN_PREPARACION` / `LISTO` | ❌ | ❌ | ✅ | ❌ |
+| Cambiar estado a `ENTREGADO` | ❌ | ✅ | ❌ | ❌ |
+| Abrir cuenta y registrar pago | ❌ | ✅ | ❌ | ❌ |
+| Crear mesas | ❌ | ❌ | ❌ | ✅ |
+| Ver mesas | ❌ | ✅ | ✅ | ✅ |
+| Crear, modificar y cancelar reservas | ✅ | ✅ | ❌ | ✅ |
+| Parqueadero (entrada y salida) | ❌ | ✅ | ❌ | ✅ |
+| Ver reportes de venta | ❌ | ❌ | ❌ | ✅ |
+| Administrar usuarios | ❌ | ❌ | ❌ | ✅ |
+
+> Los roles están definidos a nivel de diseño. La autenticación y autorización por rol se
+> implementarán en una siguiente etapa.
 
 ### Reglas de negocio
 
@@ -165,14 +189,39 @@ src/main/java/edu/escuelaing/dosw/brasaviva
 
 ## Tecnologías
 
-Java 21 · Maven · Spring Boot 3.3.4 · Lombok · JUnit 5 · Mockito · JaCoCo
+Java 21 · Maven · Spring Boot 3.3.4 · Spring Data JPA · PostgreSQL · MapStruct · Lombok ·
+springdoc-openapi (Swagger) · JUnit 5 · Mockito · JaCoCo · H2 (pruebas)
 
 ## Ejecución
 
 ```bash
+docker compose up -d      # levanta PostgreSQL
 mvn clean install
 mvn spring-boot:run
 ```
+
+La conexión se configura con las variables de entorno `DB_URL`, `DB_USER` y `DB_PASSWORD`
+(por defecto `jdbc:postgresql://localhost:5432/brasaviva`, usuario `brasaviva`).
+
+---
+
+## Persistencia
+
+**Tipo elegido: relacional (PostgreSQL + Spring Data JPA).**
+
+| Opción | Evaluación para La Brasa Viva |
+|---|---|
+| Relacional | Los datos están fuertemente relacionados: Mesa → Cuenta → Pedido → ItemPedido → Plato. Pagar una cuenta, cancelar un pedido o confirmarlo con varios ítems debe ser atómico (transacciones ACID). Los reportes (ingresos por categoría, platos más vendidos) se resuelven con consultas SQL. |
+| No relacional | Ofrece un esquema flexible, pero el esquema del restaurante es estable y las relaciones entre entidades son el núcleo del negocio. Sin joins ni transacciones entre documentos sería más difícil garantizar RN-03 (una sola cuenta abierta por mesa) y RN-04 (precio congelado). |
+| Híbrida | Solo se justificaría con datos sin estructura fija (logs, catálogos con atributos variables) o con una carga de lectura muy alta. En el MVP agrega complejidad operativa sin beneficio. |
+
+**Decisión:** relacional. Si el sistema crece (por ejemplo, un tablero de cocina en tiempo real
+con mucho tráfico), se podría añadir una caché o un almacén NoSQL para esa parte y pasar a un
+modelo híbrido.
+
+Las entidades se persisten con JPA (`ddl-auto=update`) y cada una tiene su repositorio en
+`repository/`. Las pruebas unitarias usan repositorios en memoria (`Fake...Repository`) para no
+depender de la base de datos.
 
 ---
 
@@ -317,7 +366,7 @@ implementación mínima para pasarla.
 
 ### Análisis estático — SonarQube
 
-Me genero error localmente, por internet de la escuela. En la casa lo vuelvo a hacer y lo coloco.
+> **Pendiente:** el análisis con SonarQube falló localmente por la conexión de internet de la escuela. La evidencia se agregará aquí una vez ejecutado.
 
 ---
 
