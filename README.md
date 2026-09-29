@@ -366,8 +366,20 @@ implementación mínima para pasarla.
 
 ### Análisis estático — SonarQube
 
-> **Pendiente:** el análisis con SonarQube falló localmente por la conexión de internet de la escuela. La evidencia se agregará aquí una vez ejecutado.
+El análisis se ejecutó localmente con SonarQube Community (Docker) y el plugin de Maven:
 
+```bash
+docker compose up -d sonarqube
+mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar -Dsonar.token=<TOKEN>
+```
+
+**Quality Gate**
+
+![SonarQube Quality Gate](docs/uml/sonar-quality-gate.png)
+
+**Métricas del proyecto**: 0 problemas de seguridad, cobertura de 97.7 % y 0.0 % de duplicación.
+
+![SonarQube métricas](docs/uml/sonar-metricas.png)
 ---
 
 ## Evidencia de ejecución y pruebas por funcionalidad
