@@ -18,6 +18,10 @@
     <description>API REST para el restaurante parrilla La Brasa Viva</description>
 
     <properties>
+        <sonar.projectKey>brasa-viva</sonar.projectKey>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.exclusions>**/dto/**,**/model/**,**/config/**,**/exception/**,**/BrasaVivaApplication.java</sonar.coverage.exclusions>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mapstruct.version>1.6.2</mapstruct.version>

@@ -11,5 +11,20 @@ services:
     volumes:
       - brasaviva-data:/var/lib/postgresql/data
 
+  sonarqube:
+    image: sonarqube:community
+    container_name: brasaviva-sonar
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+      - sonar-extensions:/opt/sonarqube/extensions
+      - sonar-logs:/opt/sonarqube/logs
+
 volumes:
   brasaviva-data:
+  sonar-data:
+  sonar-extensions:
+  sonar-logs:
