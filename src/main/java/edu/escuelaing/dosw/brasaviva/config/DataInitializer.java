@@ -19,6 +19,15 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        if (platoService.obtenerTodos().isEmpty()) {
+            cargarPlatos();
+        }
+        if (mesaService.obtenerTodas(null).isEmpty()) {
+            cargarMesas();
+        }
+    }
+
+    private void cargarPlatos() {
         platoService.crear(new PlatoRequestDTO("Picanha", 58000.0, "CORTE",
                 "300 g de picanha a la brasa con sal gruesa", 20));
         platoService.crear(new PlatoRequestDTO("Tomahawk", 145000.0, "CORTE",
@@ -33,10 +42,13 @@ public class DataInitializer implements CommandLineRunner {
                 null, 5));
         platoService.crear(new PlatoRequestDTO("Brownie con helado", 16000.0, "POSTRE",
                 null, 7));
+        log.info("Carta de ejemplo cargada: 7 platos");
+    }
 
+    private void cargarMesas() {
         for (int numero = 1; numero <= 6; numero++) {
             mesaService.crear(new MesaRequestDTO(numero, numero <= 4 ? 4 : 8));
         }
-        log.info("Datos de ejemplo cargados: 7 platos y 6 mesas");
+        log.info("Mesas de ejemplo cargadas: 6 mesas");
     }
 }

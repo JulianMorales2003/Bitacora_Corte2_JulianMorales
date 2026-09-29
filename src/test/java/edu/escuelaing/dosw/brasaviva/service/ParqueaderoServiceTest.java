@@ -10,6 +10,7 @@ import edu.escuelaing.dosw.brasaviva.exception.VehiculoNoEncontradoException;
 import edu.escuelaing.dosw.brasaviva.mapper.out.RegistroVehiculoMapperOut;
 import edu.escuelaing.dosw.brasaviva.model.domain.RegistroVehiculo;
 import edu.escuelaing.dosw.brasaviva.service.impl.ParqueaderoServiceImpl;
+import edu.escuelaing.dosw.brasaviva.support.FakeRegistroVehiculoRepository;
 import edu.escuelaing.dosw.brasaviva.support.RelojDePrueba;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +40,7 @@ class ParqueaderoServiceTest {
     void setUp() {
         reloj = new RelojDePrueba(LocalDateTime.of(2026, 9, 21, 12, 0));
         BrasaVivaProperties propiedades = new BrasaVivaProperties(8, LocalTime.of(22, 0), 30, 25, 2, 3000.0);
-        parqueaderoService = new ParqueaderoServiceImpl(mapperOut, propiedades, reloj);
+        parqueaderoService = new ParqueaderoServiceImpl(new FakeRegistroVehiculoRepository(), mapperOut, propiedades, reloj);
 
         lenient().when(mapperOut.toDTO(any(RegistroVehiculo.class))).thenAnswer(inv -> {
             RegistroVehiculo r = inv.getArgument(0);

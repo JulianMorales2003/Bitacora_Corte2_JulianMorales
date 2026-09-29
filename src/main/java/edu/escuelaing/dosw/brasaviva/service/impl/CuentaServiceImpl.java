@@ -19,40 +19,38 @@ import edu.escuelaing.dosw.brasaviva.service.IPedidoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import edu.escuelaing.dosw.brasaviva.repository.CuentaRepository;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
+@Transactional
 @RequiredArgsConstructor
 public class CuentaServiceImpl implements ICuentaService {
 
+    private final CuentaRepository cuentaRepository;
     private final IMesaService mesaService;
     private final IPedidoService pedidoService;
     private final CuentaMapperOut mapperOut;
     private final Clock clock;
 
-    private final Map<Long, Cuenta> cuentas = new ConcurrentHashMap<>();
-    private final AtomicLong secuencia = new AtomicLong(0);
 
     @Override
     public CuentaResponseDTO abrir(AbrirCuentaRequestDTO dto) {
         mesaService.abrirCuenta(dto.idMesa());
 
         Cuenta cuenta = Cuenta.builder()
-                .id(secuencia.incrementAndGet())
                 .idMesa(dto.idMesa())
                 .total(0.0)
                 .estado(EstadoCuenta.ABIERTA)
                 .fechaApertura(LocalDateTime.now(clock))
                 .build();
-        cuentas.put(cuenta.getId(), cuenta);
+        cuenta = cuentaRepository.save(cuenta);
         log.info("Cuenta {} abierta para la mesa id={}", cuenta.getId(), dto.idMesa());
         return mapperOut.toDTO(cuenta);
     }
@@ -62,6 +60,7 @@ public class CuentaServiceImpl implements ICuentaService {
         Cuenta cuenta = buscarOLanzar(id);
         if (cuenta.estaAbierta()) {
             cuenta.calcularTotal(pedidosDe(cuenta));
+            cuenta = cuentaRepository.save(cuenta);
         }
         return mapperOut.toDTO(cuenta);
     }
@@ -69,12 +68,10 @@ public class CuentaServiceImpl implements ICuentaService {
     @Override
     public CuentaResponseDTO obtenerAbiertaPorMesa(Long idMesa) {
         mesaService.obtenerEntidad(idMesa);
-        Cuenta cuenta = cuentas.values().stream()
-                .filter(c -> c.getIdMesa().equals(idMesa))
-                .filter(Cuenta::estaAbierta)
-                .findFirst()
+        Cuenta cuenta = cuentaRepository.findFirstByIdMesaAndEstado(idMesa, EstadoCuenta.ABIERTA)
                 .orElseThrow(() -> new CuentaNoEncontradaException("La mesa " + idMesa + " no tiene cuenta abierta"));
         cuenta.calcularTotal(pedidosDe(cuenta));
+        cuenta = cuentaRepository.save(cuenta);
         return mapperOut.toDTO(cuenta);
     }
 
@@ -101,6 +98,7 @@ public class CuentaServiceImpl implements ICuentaService {
         }
 
         cuenta.registrarPago(MedioPago.valueOf(dto.medioPago()), dto.montoRecibido());
+        cuenta = cuentaRepository.save(cuenta);
         mesaService.cerrarCuenta(cuenta.getIdMesa());
         log.info("Cuenta {} pagada con {}: total={}, cambio={}",
                 idCuenta, dto.medioPago(), total, cuenta.getCambio());
@@ -112,7 +110,7 @@ public class CuentaServiceImpl implements ICuentaService {
     }
 
     private Cuenta buscarOLanzar(Long id) {
-        return Optional.ofNullable(cuentas.get(id))
+        return cuentaRepository.findById(id)
                 .orElseThrow(() -> new CuentaNoEncontradaException("Cuenta no encontrada: " + id));
     }
 }

@@ -26,22 +26,23 @@ import edu.escuelaing.dosw.brasaviva.service.IPlatoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import edu.escuelaing.dosw.brasaviva.repository.PedidoRepository;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
+@Transactional
 @RequiredArgsConstructor
 public class PedidoServiceImpl implements IPedidoService {
 
+    private final PedidoRepository pedidoRepository;
     private final IPlatoService platoService;
     private final IMesaService mesaService;
     private final PedidoMapperIn mapperIn;
@@ -49,9 +50,6 @@ public class PedidoServiceImpl implements IPedidoService {
     private final BrasaVivaProperties propiedades;
     private final Clock clock;
 
-    private final Map<Long, Pedido> pedidos = new ConcurrentHashMap<>();
-    private final AtomicLong secuenciaPedidos = new AtomicLong(0);
-    private final AtomicLong secuenciaItems = new AtomicLong(0);
 
     @Override
     public PedidoResponseDTO crear(PedidoRequestDTO dto) {
@@ -63,10 +61,9 @@ public class PedidoServiceImpl implements IPedidoService {
 
         Pedido pedido = mapperIn.toDomain(dto);
         pedido.getItems().forEach(this::completarItem);
-        pedido.setId(secuenciaPedidos.incrementAndGet());
         pedido.setEstado(EstadoPedido.RECIBIDO);
         pedido.setTimestamp(LocalDateTime.now(clock));
-        pedidos.put(pedido.getId(), pedido);
+        pedido = pedidoRepository.save(pedido);
 
         log.info("Pedido {} confirmado en mesa {}: {} items, total={}",
                 pedido.getId(), mesa.getNumero(), pedido.getItems().size(), pedido.calcularTotal());
@@ -83,13 +80,14 @@ public class PedidoServiceImpl implements IPedidoService {
         ItemPedido item = mapperIn.toDomain(dto);
         completarItem(item);
         pedido.agregarItem(item);
+        pedido = pedidoRepository.save(pedido);
         log.info("Item '{}' agregado al pedido {}", item.getNombrePlato(), idPedido);
         return mapperOut.toDTO(pedido);
     }
 
     @Override
     public List<PedidoResponseDTO> obtenerTodos(String estado) {
-        return pedidos.values().stream()
+        return pedidoRepository.findAll().stream()
                 .filter(p -> estado == null || p.getEstado().name().equalsIgnoreCase(estado))
                 .sorted(Comparator.comparing(Pedido::getTimestamp))
                 .map(mapperOut::toDTO)
@@ -104,20 +102,16 @@ public class PedidoServiceImpl implements IPedidoService {
     @Override
     public List<PedidoResponseDTO> obtenerActivosPorMesa(Long idMesa) {
         mesaService.obtenerEntidad(idMesa);
-        return pedidos.values().stream()
-                .filter(p -> p.getIdMesa().equals(idMesa))
+        return pedidoRepository.findByIdMesaOrderByTimestampAsc(idMesa).stream()
                 .filter(Pedido::estaActivo)
-                .sorted(Comparator.comparing(Pedido::getTimestamp))
                 .map(mapperOut::toDTO)
                 .toList();
     }
 
     @Override
     public List<PedidoResponseDTO> obtenerTableroCocina() {
-        return pedidos.values().stream()
-                .filter(p -> p.getEstado() == EstadoPedido.RECIBIDO
-                        || p.getEstado() == EstadoPedido.EN_PREPARACION)
-                .sorted(Comparator.comparing(Pedido::getTimestamp))
+        return pedidoRepository.findByEstadoInOrderByTimestampAsc(
+                        List.of(EstadoPedido.RECIBIDO, EstadoPedido.EN_PREPARACION)).stream()
                 .map(mapperOut::toDTO)
                 .toList();
     }
@@ -137,6 +131,7 @@ public class PedidoServiceImpl implements IPedidoService {
 
         EstadoPedido anterior = pedido.getEstado();
         pedido.cambiarEstado(nuevoEstado);
+        pedido = pedidoRepository.save(pedido);
         log.info("Pedido {}: {} -> {}", id, anterior, nuevoEstado);
         return mapperOut.toDTO(pedido);
     }
@@ -149,20 +144,18 @@ public class PedidoServiceImpl implements IPedidoService {
                     "Un pedido en estado " + pedido.getEstado() + " no puede cancelarse");
         }
         pedido.cambiarEstado(EstadoPedido.CANCELADO);
+        pedidoRepository.save(pedido);
         log.info("Pedido {} cancelado", id);
     }
 
     @Override
     public List<Pedido> obtenerEntidades() {
-        return List.copyOf(pedidos.values());
+        return pedidoRepository.findAll();
     }
 
     @Override
     public List<Pedido> obtenerEntidadesPorMesaDesde(Long idMesa, LocalDateTime desde) {
-        return pedidos.values().stream()
-                .filter(p -> p.getIdMesa().equals(idMesa))
-                .filter(p -> !p.getTimestamp().isBefore(desde))
-                .toList();
+        return pedidoRepository.findByIdMesaAndTimestampGreaterThanEqual(idMesa, desde);
     }
 
     private void completarItem(ItemPedido item) {
@@ -181,7 +174,6 @@ public class PedidoServiceImpl implements IPedidoService {
             item.setTerminoCoccion(null);
         }
 
-        item.setId(secuenciaItems.incrementAndGet());
         item.setNombrePlato(plato.getNombre());
         item.setCategoria(plato.getCategoria());
         item.setPrecioCongelado(plato.getPrecio());
@@ -203,8 +195,7 @@ public class PedidoServiceImpl implements IPedidoService {
     }
 
     private void validarCapacidadParrilla(Pedido pedido) {
-        int cortesEnParrilla = pedidos.values().stream()
-                .filter(p -> p.getEstado() == EstadoPedido.EN_PREPARACION)
+        int cortesEnParrilla = pedidoRepository.findByEstado(EstadoPedido.EN_PREPARACION).stream()
                 .mapToInt(Pedido::contarCortes)
                 .sum();
         int cortesNuevos = pedido.contarCortes();
@@ -218,7 +209,7 @@ public class PedidoServiceImpl implements IPedidoService {
     }
 
     private Pedido buscarOLanzar(Long id) {
-        return Optional.ofNullable(pedidos.get(id))
+        return pedidoRepository.findById(id)
                 .orElseThrow(() -> new PedidoNoEncontradoException("Pedido no encontrado: " + id));
     }
 }

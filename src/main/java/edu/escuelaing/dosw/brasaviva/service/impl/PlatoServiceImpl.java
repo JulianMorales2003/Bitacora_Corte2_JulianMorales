@@ -13,38 +13,36 @@ import edu.escuelaing.dosw.brasaviva.service.IPlatoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import edu.escuelaing.dosw.brasaviva.repository.PlatoRepository;
+import org.springframework.data.domain.Sort;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
+@Transactional
 @RequiredArgsConstructor
 public class PlatoServiceImpl implements IPlatoService {
 
+    private final PlatoRepository platoRepository;
     private final PlatoMapperIn mapperIn;
     private final PlatoMapperOut mapperOut;
 
-    private final Map<Long, Plato> platos = new ConcurrentHashMap<>();
-    private final AtomicLong secuencia = new AtomicLong(0);
 
     @Override
     public List<PlatoResponseDTO> obtenerTodos() {
         log.debug("Consultando la carta completa");
-        return platos.values().stream()
-                .sorted(Comparator.comparing(Plato::getId))
+        return platoRepository.findAll(Sort.by("id")).stream()
                 .map(mapperOut::toDTO)
                 .toList();
     }
 
     @Override
     public List<PlatoResponseDTO> obtenerDisponibles() {
-        return platos.values().stream()
-                .filter(Plato::estaDisponible)
+        return platoRepository.findByDisponibleTrue().stream()
                 .sorted(Comparator.comparing(Plato::getId))
                 .map(mapperOut::toDTO)
                 .toList();
@@ -61,9 +59,8 @@ public class PlatoServiceImpl implements IPlatoService {
             throw new PlatoYaExisteException("Ya existe un plato: " + dto.nombre());
         }
         Plato plato = mapperIn.toDomain(dto);
-        plato.setId(secuencia.incrementAndGet());
         plato.setDisponible(true);
-        platos.put(plato.getId(), plato);
+        plato = platoRepository.save(plato);
         log.info("Plato creado: id={}, nombre={}", plato.getId(), plato.getNombre());
         return mapperOut.toDTO(plato);
     }
@@ -79,6 +76,7 @@ public class PlatoServiceImpl implements IPlatoService {
         plato.setCategoria(dto.categoria());
         plato.setDescripcion(dto.descripcion());
         plato.setTiempoPreparacionMin(dto.tiempoPreparacionMin());
+        plato = platoRepository.save(plato);
         log.info("Plato actualizado: id={}", id);
         return mapperOut.toDTO(plato);
     }
@@ -87,21 +85,21 @@ public class PlatoServiceImpl implements IPlatoService {
     public PlatoResponseDTO cambiarDisponibilidad(Long id, DisponibilidadRequestDTO dto) {
         Plato plato = buscarOLanzar(id);
         plato.cambiarDisponibilidad(dto.disponible());
+        platoRepository.save(plato);
         log.info("Plato id={} marcado como {}", id, dto.disponible() ? "DISPONIBLE" : "AGOTADO");
         return mapperOut.toDTO(plato);
     }
 
     @Override
     public void eliminar(Long id) {
-        buscarOLanzar(id);
-        platos.remove(id);
+        Plato plato = buscarOLanzar(id);
+        platoRepository.delete(plato);
         log.info("Plato eliminado de la carta: id={}", id);
     }
 
     @Override
     public List<MenuItemResponseDTO> obtenerMenu(String categoria) {
-        return platos.values().stream()
-                .filter(Plato::estaDisponible)
+        return platoRepository.findByDisponibleTrue().stream()
                 .filter(p -> categoria == null || p.getCategoria().equalsIgnoreCase(categoria))
                 .sorted(Comparator.comparing(Plato::getCategoria).thenComparing(Plato::getNombre))
                 .map(mapperOut::toMenuDTO)
@@ -110,7 +108,7 @@ public class PlatoServiceImpl implements IPlatoService {
 
     @Override
     public MenuItemResponseDTO obtenerItemMenu(Long id) {
-        return Optional.ofNullable(platos.get(id))
+        return platoRepository.findById(id)
                 .filter(Plato::estaDisponible)
                 .map(mapperOut::toMenuDTO)
                 .orElseThrow(() -> new PlatoNoEncontradoException("Plato no disponible en el menu: " + id));
@@ -122,13 +120,13 @@ public class PlatoServiceImpl implements IPlatoService {
     }
 
     private boolean nombreExiste(String nombre, Long idExcluido) {
-        return platos.values().stream()
-                .filter(p -> !p.getId().equals(idExcluido))
-                .anyMatch(p -> p.getNombre().equalsIgnoreCase(nombre));
+        return idExcluido == null
+                ? platoRepository.existsByNombreIgnoreCase(nombre)
+                : platoRepository.existsByNombreIgnoreCaseAndIdNot(nombre, idExcluido);
     }
 
     private Plato buscarOLanzar(Long id) {
-        return Optional.ofNullable(platos.get(id))
+        return platoRepository.findById(id)
                 .orElseThrow(() -> new PlatoNoEncontradoException("Plato no encontrado: " + id));
     }
 }

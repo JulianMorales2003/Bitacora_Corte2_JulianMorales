@@ -16,34 +16,32 @@ import edu.escuelaing.dosw.brasaviva.service.IReservaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import edu.escuelaing.dosw.brasaviva.repository.ReservaRepository;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
+@Transactional
 @RequiredArgsConstructor
 public class ReservaServiceImpl implements IReservaService {
 
+    private final ReservaRepository reservaRepository;
     private final IMesaService mesaService;
     private final ReservaMapperIn mapperIn;
     private final ReservaMapperOut mapperOut;
 
-    private final Map<Long, Reserva> reservas = new ConcurrentHashMap<>();
-    private final AtomicLong secuencia = new AtomicLong(0);
 
     @Override
     public ReservaResponseDTO crear(ReservaRequestDTO dto) {
         validarMesaYHorario(dto, null);
         Reserva reserva = mapperIn.toDomain(dto);
-        reserva.setId(secuencia.incrementAndGet());
         reserva.setEstado(EstadoReserva.ACTIVA);
-        reservas.put(reserva.getId(), reserva);
+        reserva = reservaRepository.save(reserva);
         log.info("Reserva {} creada: mesa id={}, {} para {} personas",
                 reserva.getId(), dto.idMesa(), dto.fechaHora(), dto.comensales());
         return mapperOut.toDTO(reserva);
@@ -51,7 +49,7 @@ public class ReservaServiceImpl implements IReservaService {
 
     @Override
     public List<ReservaResponseDTO> obtenerTodas(String cliente) {
-        return reservas.values().stream()
+        return reservaRepository.findAll().stream()
                 .filter(r -> cliente == null || r.getCliente().toLowerCase().contains(cliente.toLowerCase()))
                 .sorted(Comparator.comparing(Reserva::getFechaHora))
                 .map(mapperOut::toDTO)
@@ -72,6 +70,7 @@ public class ReservaServiceImpl implements IReservaService {
         reserva.setCliente(dto.cliente());
         reserva.setComensales(dto.comensales());
         reserva.reprogramar(dto.fechaHora());
+        reserva = reservaRepository.save(reserva);
         log.info("Reserva {} actualizada para {}", id, dto.fechaHora());
         return mapperOut.toDTO(reserva);
     }
@@ -81,6 +80,7 @@ public class ReservaServiceImpl implements IReservaService {
         Reserva reserva = buscarOLanzar(id);
         validarActiva(reserva);
         reserva.cancelar();
+        reservaRepository.save(reserva);
         log.info("Reserva {} cancelada", id);
     }
 
@@ -97,10 +97,8 @@ public class ReservaServiceImpl implements IReservaService {
     }
 
     private boolean hayChoqueDeHorario(Long idMesa, LocalDateTime fechaHora, Long idExcluido) {
-        return reservas.values().stream()
+        return reservaRepository.findByIdMesaAndEstado(idMesa, EstadoReserva.ACTIVA).stream()
                 .filter(r -> !r.getId().equals(idExcluido))
-                .filter(r -> r.getEstado() == EstadoReserva.ACTIVA)
-                .filter(r -> r.getIdMesa().equals(idMesa))
                 .anyMatch(r -> r.seSolapaCon(fechaHora));
     }
 
@@ -111,7 +109,7 @@ public class ReservaServiceImpl implements IReservaService {
     }
 
     private Reserva buscarOLanzar(Long id) {
-        return Optional.ofNullable(reservas.get(id))
+        return reservaRepository.findById(id)
                 .orElseThrow(() -> new ReservaNoEncontradaException("Reserva no encontrada: " + id));
     }
 }

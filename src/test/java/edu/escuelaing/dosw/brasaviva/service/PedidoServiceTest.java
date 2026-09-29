@@ -25,6 +25,7 @@ import edu.escuelaing.dosw.brasaviva.model.domain.Pedido;
 import edu.escuelaing.dosw.brasaviva.model.domain.Plato;
 import edu.escuelaing.dosw.brasaviva.model.domain.TerminoCoccion;
 import edu.escuelaing.dosw.brasaviva.service.impl.PedidoServiceImpl;
+import edu.escuelaing.dosw.brasaviva.support.FakePedidoRepository;
 import edu.escuelaing.dosw.brasaviva.support.RelojDePrueba;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -69,7 +70,8 @@ class PedidoServiceTest {
     void setUp() {
         reloj = new RelojDePrueba(LocalDateTime.of(2026, 9, 21, 13, 0));
         BrasaVivaProperties propiedades = new BrasaVivaProperties(8, LocalTime.of(22, 0), 30, 25, 20, 3000.0);
-        pedidoService = new PedidoServiceImpl(platoService, mesaService, mapperIn, mapperOut, propiedades, reloj);
+        pedidoService = new PedidoServiceImpl(new FakePedidoRepository(), platoService, mesaService, mapperIn,
+                mapperOut, propiedades, reloj);
 
         mesaConCuenta = new Mesa(1L, 1, 4, EstadoMesa.OCUPADA, true);
         picanha = new Plato(1L, "Picanha", 58000.0, "CORTE", null, true, 20);

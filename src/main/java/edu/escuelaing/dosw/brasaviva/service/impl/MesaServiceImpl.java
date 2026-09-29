@@ -13,28 +13,27 @@ import edu.escuelaing.dosw.brasaviva.service.IMesaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import edu.escuelaing.dosw.brasaviva.repository.MesaRepository;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
+@Transactional
 @RequiredArgsConstructor
 public class MesaServiceImpl implements IMesaService {
 
+    private final MesaRepository mesaRepository;
     private final MesaMapperIn mapperIn;
     private final MesaMapperOut mapperOut;
 
-    private final Map<Long, Mesa> mesas = new ConcurrentHashMap<>();
-    private final AtomicLong secuencia = new AtomicLong(0);
 
     @Override
     public List<MesaResponseDTO> obtenerTodas(String estado) {
-        return mesas.values().stream()
+        return mesaRepository.findAll().stream()
                 .filter(m -> estado == null || m.getEstado().name().equalsIgnoreCase(estado))
                 .sorted(Comparator.comparing(Mesa::getNumero))
                 .map(mapperOut::toDTO)
@@ -48,16 +47,13 @@ public class MesaServiceImpl implements IMesaService {
 
     @Override
     public MesaResponseDTO crear(MesaRequestDTO dto) {
-        boolean numeroRepetido = mesas.values().stream()
-                .anyMatch(m -> m.getNumero().equals(dto.numero()));
-        if (numeroRepetido) {
+        if (mesaRepository.existsByNumero(dto.numero())) {
             throw new MesaYaExisteException("Ya existe la mesa numero " + dto.numero());
         }
         Mesa mesa = mapperIn.toDomain(dto);
-        mesa.setId(secuencia.incrementAndGet());
         mesa.setEstado(EstadoMesa.DISPONIBLE);
         mesa.setCuentaAbierta(false);
-        mesas.put(mesa.getId(), mesa);
+        mesa = mesaRepository.save(mesa);
         log.info("Mesa creada: numero={}, capacidad={}", mesa.getNumero(), mesa.getCapacidad());
         return mapperOut.toDTO(mesa);
     }
@@ -74,6 +70,7 @@ public class MesaServiceImpl implements IMesaService {
             throw new CuentaYaAbiertaException("La mesa " + mesa.getNumero() + " ya tiene una cuenta abierta");
         }
         mesa.abrirCuenta();
+        mesaRepository.save(mesa);
         log.info("Cuenta abierta en mesa {}", mesa.getNumero());
     }
 
@@ -81,16 +78,17 @@ public class MesaServiceImpl implements IMesaService {
     public void cerrarCuenta(Long idMesa) {
         Mesa mesa = buscarOLanzar(idMesa);
         mesa.cerrarCuenta();
+        mesaRepository.save(mesa);
         log.info("Mesa {} liberada", mesa.getNumero());
     }
 
     @Override
     public long contarConCuentaAbierta() {
-        return mesas.values().stream().filter(Mesa::tieneCuentaAbierta).count();
+        return mesaRepository.countByCuentaAbiertaTrue();
     }
 
     private Mesa buscarOLanzar(Long id) {
-        return Optional.ofNullable(mesas.get(id))
+        return mesaRepository.findById(id)
                 .orElseThrow(() -> new MesaNoEncontradaException("Mesa no encontrada: " + id));
     }
 }

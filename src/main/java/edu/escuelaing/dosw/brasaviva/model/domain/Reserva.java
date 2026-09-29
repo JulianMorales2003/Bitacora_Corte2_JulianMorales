@@ -1,5 +1,6 @@
 package edu.escuelaing.dosw.brasaviva.model.domain;
 
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,6 +9,8 @@ import lombok.NoArgsConstructor;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
+@Entity
+@Table(name = "reservas")
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,11 +19,16 @@ public class Reserva {
 
     public static final long DURACION_MINUTOS = 120;
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "id_mesa", nullable = false)
     private Long idMesa;
     private String cliente;
     private LocalDateTime fechaHora;
     private Integer comensales;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private EstadoReserva estado;
 
     public boolean estaVigente() {

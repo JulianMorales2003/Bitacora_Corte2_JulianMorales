@@ -13,27 +13,26 @@ import edu.escuelaing.dosw.brasaviva.service.IParqueaderoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import edu.escuelaing.dosw.brasaviva.repository.RegistroVehiculoRepository;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
+@Transactional
 @RequiredArgsConstructor
 public class ParqueaderoServiceImpl implements IParqueaderoService {
 
+    private final RegistroVehiculoRepository registroRepository;
     private final RegistroVehiculoMapperOut mapperOut;
     private final BrasaVivaProperties propiedades;
     private final Clock clock;
 
-    private final Map<Long, RegistroVehiculo> registros = new ConcurrentHashMap<>();
-    private final AtomicLong secuencia = new AtomicLong(0);
 
     @Override
     public RegistroVehiculoResponseDTO registrarEntrada(EntradaVehiculoRequestDTO dto) {
@@ -47,11 +46,10 @@ public class ParqueaderoServiceImpl implements IParqueaderoService {
         }
 
         RegistroVehiculo registro = RegistroVehiculo.builder()
-                .id(secuencia.incrementAndGet())
                 .placa(placa)
                 .entrada(LocalDateTime.now(clock))
                 .build();
-        registros.put(registro.getId(), registro);
+        registro = registroRepository.save(registro);
         log.info("Entrada de vehiculo {}", placa);
         return mapperOut.toDTO(registro);
     }
@@ -64,15 +62,14 @@ public class ParqueaderoServiceImpl implements IParqueaderoService {
                         "La placa " + placaNormalizada + " no tiene un ingreso activo"));
         registro.registrarSalida(LocalDateTime.now(clock));
         double cobro = registro.calcularCobro(propiedades.tarifaParqueaderoHora());
+        registro = registroRepository.save(registro);
         log.info("Salida de vehiculo {}: cobro={}", placaNormalizada, cobro);
         return mapperOut.toDTO(registro);
     }
 
     @Override
     public List<RegistroVehiculoResponseDTO> obtenerActivos() {
-        return registros.values().stream()
-                .filter(RegistroVehiculo::estaActivo)
-                .sorted(Comparator.comparing(RegistroVehiculo::getEntrada))
+        return registroRepository.findBySalidaIsNullOrderByEntradaAsc().stream()
                 .map(mapperOut::toDTO)
                 .toList();
     }
@@ -85,13 +82,10 @@ public class ParqueaderoServiceImpl implements IParqueaderoService {
     }
 
     private long contarActivos() {
-        return registros.values().stream().filter(RegistroVehiculo::estaActivo).count();
+        return registroRepository.countBySalidaIsNull();
     }
 
     private Optional<RegistroVehiculo> buscarActivo(String placa) {
-        return registros.values().stream()
-                .filter(RegistroVehiculo::estaActivo)
-                .filter(r -> r.getPlaca().equals(placa))
-                .findFirst();
+        return registroRepository.findFirstByPlacaAndSalidaIsNull(placa);
     }
 }

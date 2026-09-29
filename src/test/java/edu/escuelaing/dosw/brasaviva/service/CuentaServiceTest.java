@@ -14,6 +14,7 @@ import edu.escuelaing.dosw.brasaviva.model.domain.EstadoPedido;
 import edu.escuelaing.dosw.brasaviva.model.domain.ItemPedido;
 import edu.escuelaing.dosw.brasaviva.model.domain.Pedido;
 import edu.escuelaing.dosw.brasaviva.service.impl.CuentaServiceImpl;
+import edu.escuelaing.dosw.brasaviva.support.FakeCuentaRepository;
 import edu.escuelaing.dosw.brasaviva.support.RelojDePrueba;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,7 +49,8 @@ class CuentaServiceTest {
 
     @BeforeEach
     void setUp() {
-        cuentaService = new CuentaServiceImpl(mesaService, pedidoService, mapperOut, new RelojDePrueba(APERTURA));
+        cuentaService = new CuentaServiceImpl(new FakeCuentaRepository(), mesaService, pedidoService, mapperOut,
+                new RelojDePrueba(APERTURA));
         lenient().when(mapperOut.toDTO(any(Cuenta.class))).thenAnswer(inv -> {
             Cuenta c = inv.getArgument(0);
             return new CuentaResponseDTO(c.getId(), c.getIdMesa(), c.getTotal(), c.getEstado().name(),
