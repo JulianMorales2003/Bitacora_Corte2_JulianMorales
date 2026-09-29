@@ -62,7 +62,7 @@ class ReservaControllerTest {
 
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content(json(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("La reserva debe ser en una fecha futura")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("La reserva debe ser en una fecha futura"))));
 
         verifyNoInteractions(reservaService);
     }
@@ -72,10 +72,10 @@ class ReservaControllerTest {
     void crear_sinCampos_debeRetornar400() throws Exception {
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("idMesa")))
-                .andExpect(jsonPath("$.message").value(containsString("cliente")))
-                .andExpect(jsonPath("$.message").value(containsString("fechaHora")))
-                .andExpect(jsonPath("$.message").value(containsString("comensales")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("idMesa"))))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("cliente"))))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("fechaHora"))))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("comensales"))));
     }
 
     @Test
@@ -85,7 +85,7 @@ class ReservaControllerTest {
 
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content(json(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("Maximo 20 comensales por reserva")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Maximo 20 comensales por reserva"))));
     }
 
     @Test

@@ -94,8 +94,8 @@ class MesaControllerTest {
     void crear_sinCampos_debeRetornar400() throws Exception {
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("numero")))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("capacidad")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("numero"))))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("capacidad"))));
 
         verifyNoInteractions(mesaService);
     }
@@ -107,7 +107,7 @@ class MesaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new MesaRequestDTO(5, 21))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("La capacidad maxima es 20 personas")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("La capacidad maxima es 20 personas"))));
     }
 
     @Test
@@ -117,7 +117,7 @@ class MesaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new MesaRequestDTO(0, 4))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("El numero de mesa debe ser positivo")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El numero de mesa debe ser positivo"))));
     }
 
     @Test
@@ -129,6 +129,6 @@ class MesaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new MesaRequestDTO(5, 4))))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("Conflicto"));
+                .andExpect(jsonPath("$.error").value("Conflict"));
     }
 }

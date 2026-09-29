@@ -10,11 +10,11 @@ import edu.escuelaing.dosw.brasaviva.mapper.in.PlatoMapperIn;
 import edu.escuelaing.dosw.brasaviva.mapper.out.PlatoMapperOut;
 import edu.escuelaing.dosw.brasaviva.model.domain.Plato;
 import edu.escuelaing.dosw.brasaviva.service.impl.PlatoServiceImpl;
+import edu.escuelaing.dosw.brasaviva.support.FakePlatoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,7 +33,6 @@ class PlatoServiceTest {
     @Mock
     private PlatoMapperOut mapperOut;
 
-    @InjectMocks
     private PlatoServiceImpl platoService;
 
     private PlatoRequestDTO requestDto;
@@ -42,6 +41,7 @@ class PlatoServiceTest {
 
     @BeforeEach
     void setUp() {
+        platoService = new PlatoServiceImpl(new FakePlatoRepository(), mapperIn, mapperOut);
         requestDto = new PlatoRequestDTO("Picanha", 58000.0, "CORTE", "300 g a la brasa", 20);
         platoEntidad = new Plato(null, "Picanha", 58000.0, "CORTE", "300 g a la brasa", null, 20);
         responseDto = new PlatoResponseDTO(1L, "Picanha", 58000.0, "CORTE", "300 g a la brasa", true, 20);

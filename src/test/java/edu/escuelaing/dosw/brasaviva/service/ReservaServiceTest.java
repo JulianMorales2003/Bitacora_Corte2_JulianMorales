@@ -13,11 +13,11 @@ import edu.escuelaing.dosw.brasaviva.model.domain.EstadoMesa;
 import edu.escuelaing.dosw.brasaviva.model.domain.Mesa;
 import edu.escuelaing.dosw.brasaviva.model.domain.Reserva;
 import edu.escuelaing.dosw.brasaviva.service.impl.ReservaServiceImpl;
+import edu.escuelaing.dosw.brasaviva.support.FakeReservaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -42,11 +42,11 @@ class ReservaServiceTest {
     @Mock
     private ReservaMapperOut mapperOut;
 
-    @InjectMocks
     private ReservaServiceImpl reservaService;
 
     @BeforeEach
     void setUp() {
+        reservaService = new ReservaServiceImpl(new FakeReservaRepository(), mesaService, mapperIn, mapperOut);
         lenient().when(mesaService.obtenerEntidad(1L)).thenReturn(new Mesa(1L, 1, 4, EstadoMesa.DISPONIBLE, false));
         lenient().when(mesaService.obtenerEntidad(2L)).thenReturn(new Mesa(2L, 2, 8, EstadoMesa.DISPONIBLE, false));
         lenient().when(mapperIn.toDomain(any(ReservaRequestDTO.class))).thenAnswer(inv -> {

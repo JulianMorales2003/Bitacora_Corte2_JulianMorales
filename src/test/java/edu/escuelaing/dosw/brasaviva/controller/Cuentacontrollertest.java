@@ -60,7 +60,7 @@ class CuentaControllerTest {
     void abrir_sinMesa_debeRetornar400() throws Exception {
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("El id de la mesa es obligatorio")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El id de la mesa es obligatorio"))));
 
         verifyNoInteractions(cuentaService);
     }
@@ -140,7 +140,7 @@ class CuentaControllerTest {
         mockMvc.perform(post(BASE + "/1/pago").contentType(MediaType.APPLICATION_JSON)
                         .content(json(new PagoRequestDTO("CHEQUE", 50000.0))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("Medio de pago invalido")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Medio de pago invalido"))));
     }
 
     @Test
@@ -149,7 +149,7 @@ class CuentaControllerTest {
         mockMvc.perform(post(BASE + "/1/pago").contentType(MediaType.APPLICATION_JSON)
                         .content(json(new PagoRequestDTO("TARJETA", 0.0))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("El monto debe ser mayor a cero")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El monto debe ser mayor a cero"))));
     }
 
     @Test
@@ -157,7 +157,7 @@ class CuentaControllerTest {
     void registrarPago_bodyVacio_debeRetornar400() throws Exception {
         mockMvc.perform(post(BASE + "/1/pago").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Cuerpo de la peticion invalido"));
+                .andExpect(jsonPath("$.error").value("Bad Request"));
     }
 
     @Test

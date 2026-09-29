@@ -10,11 +10,11 @@ import edu.escuelaing.dosw.brasaviva.mapper.out.MesaMapperOut;
 import edu.escuelaing.dosw.brasaviva.model.domain.EstadoMesa;
 import edu.escuelaing.dosw.brasaviva.model.domain.Mesa;
 import edu.escuelaing.dosw.brasaviva.service.impl.MesaServiceImpl;
+import edu.escuelaing.dosw.brasaviva.support.FakeMesaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,11 +33,11 @@ class MesaServiceTest {
     @Mock
     private MesaMapperOut mapperOut;
 
-    @InjectMocks
     private MesaServiceImpl mesaService;
 
     @BeforeEach
     void setUp() {
+        mesaService = new MesaServiceImpl(new FakeMesaRepository(), mapperIn, mapperOut);
         lenient().when(mapperIn.toDomain(any(MesaRequestDTO.class))).thenAnswer(inv -> {
             MesaRequestDTO d = inv.getArgument(0);
             return Mesa.builder().numero(d.numero()).capacidad(d.capacidad()).build();

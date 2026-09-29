@@ -71,8 +71,8 @@ class ReporteControllerTest {
     void platosPopulares_topCero_debeRetornar400() throws Exception {
         mockMvc.perform(get(BASE + "/platos-populares").param("top", "0"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Parametros invalidos"))
-                .andExpect(jsonPath("$.message").value(containsString("El top minimo es 1")));
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El top minimo es 1"))));
 
         verifyNoInteractions(reporteService);
     }
@@ -82,7 +82,7 @@ class ReporteControllerTest {
     void platosPopulares_topExcesivo_debeRetornar400() throws Exception {
         mockMvc.perform(get(BASE + "/platos-populares").param("top", "51"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("El top maximo es 50")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El top maximo es 50"))));
     }
 
     @Test
@@ -90,7 +90,7 @@ class ReporteControllerTest {
     void platosPopulares_topNoNumerico_debeRetornar400() throws Exception {
         mockMvc.perform(get(BASE + "/platos-populares").param("top", "abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Parametro invalido"))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
                 .andExpect(jsonPath("$.message").value(containsString("top")));
     }
 
@@ -113,7 +113,7 @@ class ReporteControllerTest {
     void ingresos_sinHasta_debeRetornar400() throws Exception {
         mockMvc.perform(get(BASE + "/ingresos").param("desde", "2026-09-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Parametro faltante"))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
                 .andExpect(jsonPath("$.message").value(containsString("hasta")));
 
         verifyNoInteractions(reporteService);
@@ -124,7 +124,7 @@ class ReporteControllerTest {
     void ingresos_fechaMalFormada_debeRetornar400() throws Exception {
         mockMvc.perform(get(BASE + "/ingresos").param("desde", "01/09/2026").param("hasta", "2026-09-28"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Parametro invalido"));
+                .andExpect(jsonPath("$.error").value("Bad Request"));
     }
 
     @Test
@@ -136,7 +136,7 @@ class ReporteControllerTest {
 
         mockMvc.perform(get(BASE + "/ingresos").param("desde", "2026-09-28").param("hasta", "2026-09-01"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Solicitud invalida"))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
                 .andExpect(jsonPath("$.message").value("desde debe ser <= hasta"));
     }
 }

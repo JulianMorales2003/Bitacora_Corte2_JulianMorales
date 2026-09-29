@@ -70,7 +70,7 @@ class PlatoControllerTest {
         mockMvc.perform(get(BASE + "/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("No encontrado"))
+                .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message").value("Plato 99 no existe"))
                 .andExpect(jsonPath("$.path").value(BASE + "/99"));
     }
@@ -80,7 +80,7 @@ class PlatoControllerTest {
     void obtenerPorId_idNoNumerico_debeRetornar400() throws Exception {
         mockMvc.perform(get(BASE + "/abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Parametro invalido"));
+                .andExpect(jsonPath("$.error").value("Bad Request"));
 
         verifyNoInteractions(platoService);
     }
@@ -106,9 +106,9 @@ class PlatoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Datos de entrada invalidos"))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("nombre")))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("precio")));
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("nombre"))))
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("precio"))));
 
         verifyNoInteractions(platoService);
     }
@@ -122,7 +122,7 @@ class PlatoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Categoria invalida")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Categoria invalida"))));
     }
 
     @Test
@@ -134,7 +134,7 @@ class PlatoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("El precio debe ser mayor a cero")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El precio debe ser mayor a cero"))));
     }
 
     @Test
@@ -144,7 +144,7 @@ class PlatoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{nombre: sin comillas"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Cuerpo de la peticion invalido"));
+                .andExpect(jsonPath("$.error").value("Bad Request"));
     }
 
     @Test
@@ -158,7 +158,7 @@ class PlatoControllerTest {
                         .content(objectMapper.writeValueAsString(requestValido())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.error").value("Conflicto"));
+                .andExpect(jsonPath("$.error").value("Conflict"));
     }
 
     @Test
@@ -216,7 +216,7 @@ class PlatoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Debe indicar si el plato esta disponible")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Debe indicar si el plato esta disponible"))));
     }
 
     @Test
@@ -244,6 +244,6 @@ class PlatoControllerTest {
     void metodoNoSoportado_debeRetornar405() throws Exception {
         mockMvc.perform(patch(BASE))
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(jsonPath("$.error").value("Metodo no permitido"));
+                .andExpect(jsonPath("$.error").value("Method Not Allowed"));
     }
 }

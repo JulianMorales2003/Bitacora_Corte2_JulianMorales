@@ -8,8 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -83,6 +85,23 @@ public class GlobalExceptionHandler {
                                                             HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST,
                 "El parámetro '" + ex.getName() + "' tiene un valor inválido", req, List.of());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex,
+                                                            HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST,
+                "El parámetro '" + ex.getParameterName() + "' es obligatorio", req, List.of());
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleMethodValidation(HandlerMethodValidationException ex,
+                                                                HttpServletRequest req) {
+        List<String> details = ex.getAllValidationResults().stream()
+                .flatMap(r -> r.getResolvableErrors().stream())
+                .map(e -> e.getDefaultMessage())
+                .toList();
+        return build(HttpStatus.BAD_REQUEST, "Parámetros inválidos", req, details);
     }
 
     // ---------- Errores de Spring MVC (evitan que caigan como 500) ----------

@@ -68,7 +68,7 @@ class PedidoControllerTest {
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new PedidoRequestDTO(3L, List.of()))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("El pedido debe tener al menos un plato")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El pedido debe tener al menos un plato"))));
 
         verifyNoInteractions(pedidoService);
     }
@@ -79,7 +79,7 @@ class PedidoControllerTest {
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new PedidoRequestDTO(null, List.of(itemValido())))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("El id de la mesa es obligatorio")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("El id de la mesa es obligatorio"))));
     }
 
     @Test
@@ -90,7 +90,7 @@ class PedidoControllerTest {
         mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new PedidoRequestDTO(3L, List.of(malo)))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("La cantidad minima es 1")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("La cantidad minima es 1"))));
     }
 
     @Test
@@ -112,7 +112,7 @@ class PedidoControllerTest {
                         .content(json(new PedidoRequestDTO(3L, List.of(itemValido())))))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.status").value(422))
-                .andExpect(jsonPath("$.error").value("Regla de negocio"))
+                .andExpect(jsonPath("$.error").value("Unprocessable Entity"))
                 .andExpect(jsonPath("$.message").value("Picanha agotado"));
     }
 
@@ -208,7 +208,7 @@ class PedidoControllerTest {
 
         mockMvc.perform(post(BASE + "/1/items").contentType(MediaType.APPLICATION_JSON).content(json(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("Termino invalido")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Termino invalido"))));
     }
 
     @Test
@@ -218,7 +218,7 @@ class PedidoControllerTest {
 
         mockMvc.perform(post(BASE + "/1/items").contentType(MediaType.APPLICATION_JSON).content(json(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("La cantidad maxima por item es 20")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("La cantidad maxima por item es 20"))));
     }
 
     @Test
@@ -251,7 +251,7 @@ class PedidoControllerTest {
         mockMvc.perform(patch(BASE + "/1/estado").contentType(MediaType.APPLICATION_JSON)
                         .content(json(new CambioEstadoRequestDTO("VOLANDO"))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("Estado invalido")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Estado invalido"))));
 
         verifyNoInteractions(pedidoService);
     }

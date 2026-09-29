@@ -71,7 +71,7 @@ class ParqueaderoControllerTest {
         mockMvc.perform(post(BASE + "/entrada").contentType(MediaType.APPLICATION_JSON)
                         .content(json(new EntradaVehiculoRequestDTO("12"))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("Placa invalida")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("Placa invalida"))));
 
         verifyNoInteractions(parqueaderoService);
     }
@@ -82,7 +82,7 @@ class ParqueaderoControllerTest {
         mockMvc.perform(post(BASE + "/entrada").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"placa\":\"\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("La placa es obligatoria")));
+                .andExpect(jsonPath("$.details", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("La placa es obligatoria"))));
     }
 
     @Test
