@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import edu.escuelaing.dosw.brasaviva.repository.PlatoRepository;
-import org.springframework.data.domain.Sort;
 
 import java.util.Comparator;
 import java.util.List;
@@ -35,7 +34,7 @@ public class PlatoServiceImpl implements IPlatoService {
     @Override
     public List<PlatoResponseDTO> obtenerTodos() {
         log.debug("Consultando la carta completa");
-        return platoRepository.findAll(Sort.by("id")).stream()
+        return platoRepository.findAll().stream()
                 .map(mapperOut::toDTO)
                 .toList();
     }

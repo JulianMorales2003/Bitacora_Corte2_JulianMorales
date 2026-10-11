@@ -6,11 +6,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-@Repository
-public interface PedidoRepository extends JpaRepository<Pedido, Long> {
+public interface PedidoRepository extends BaseRepository<Pedido, Long> {
     List<Pedido> findByIdMesaOrderByTimestampAsc(Long idMesa);
 
     List<Pedido> findByEstado(EstadoPedido estado);
@@ -18,5 +14,4 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     List<Pedido> findByEstadoInOrderByTimestampAsc(Collection<EstadoPedido> estados);
 
     List<Pedido> findByIdMesaAndTimestampGreaterThanEqual(Long idMesa, LocalDateTime desde);
-
 }
