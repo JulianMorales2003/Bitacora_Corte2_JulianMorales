@@ -31,6 +31,8 @@ El MVP valida el ciclo **carta → pedido → cocina → pago** antes de escalar
 
 ### Roles y permisos
 
+También disponible en Excel: [`docs/roles-permisos.xlsx`](docs/roles-permisos.xlsx) (matriz y una hoja por rol).
+
 | Funcionalidad | Cliente | Mesero | Parrillero / Cocina | Administrador |
 |---|:-:|:-:|:-:|:-:|
 | Ver el menú | ✅ | ✅ | ✅ | ✅ |
@@ -152,11 +154,65 @@ classDiagram
         -Double cobro
     }
  
+    class PlatoEntity {
+        <<Entity>>
+        -Long id
+        -String nombre
+        -Double precio
+        -String categoria
+        -String descripcion
+        -Boolean disponible
+        -Integer tiempoPreparacionMin
+    }
+    class PedidoEntity {
+        <<Entity>>
+        -Long id
+        -Long idMesa
+        -EstadoPedido estado
+        -LocalDateTime timestamp
+    }
+    class ItemPedidoEntity {
+        <<Entity>>
+        -Long id
+        -Long idPlato
+        -Double precioCongelado
+        -Integer cantidad
+    }
+    class PlatoEntityMapper {
+        <<Mapper>>
+        +toDomain(PlatoEntity) Plato
+        +toEntity(Plato) PlatoEntity
+    }
+    class PedidoEntityMapper {
+        <<Mapper>>
+        +toDomain(PedidoEntity) Pedido
+        +toEntity(Pedido) PedidoEntity
+    }
+
     Mesa "1" -- "0..*" Cuenta : tiene
     Mesa "1" -- "0..*" Pedido : registra
     Mesa "1" -- "0..*" Reserva : tiene
     Pedido "1" *-- "1..*" ItemPedido : contiene
     ItemPedido "0..*" -- "1" Plato : corresponde a
+    PedidoEntity "1" *-- "1..*" ItemPedidoEntity : contiene
+    PlatoEntityMapper ..> Plato : dominio
+    PlatoEntityMapper ..> PlatoEntity : entidad
+    PedidoEntityMapper ..> Pedido : dominio
+    PedidoEntityMapper ..> PedidoEntity : entidad
+```
+
+> El diagrama muestra el patrón con Plato y Pedido; Mesa, Cuenta, Reserva y RegistroVehiculo
+> siguen el mismo esquema (`XEntity` + `XEntityMapper` en `persistence/`).
+
+**Capas de persistencia**
+
+```mermaid
+flowchart LR
+    S[Service] -->|objetos de dominio| R[repository/PlatoRepository]
+    R -.implementa.- A[persistence/adapter/PlatoRepositoryAdapter]
+    A --> M[persistence/mapper/PlatoEntityMapper]
+    A --> J[persistence/jpa/PlatoJpaRepository]
+    J --> E[(PlatoEntity → tabla platos)]
 ```
 
 ### Estados del pedido
@@ -177,8 +233,10 @@ stateDiagram-v2
 ```
 src/main/java/edu/escuelaing/dosw/brasaviva
 ├── BrasaVivaApplication.java
-├── model/        entidades y enums del dominio
-├── repository/   acceso a datos
+├── model/domain/ modelo de dominio (lógica de negocio, sin anotaciones JPA) y enums
+├── repository/   contratos de acceso a datos que usan los servicios (trabajan con dominio)
+├── persistence/  infraestructura: entity/ (tablas JPA), jpa/ (Spring Data),
+│                 mapper/ (dominio ↔ entidad) y adapter/ (implementan repository/)
 ├── service/      lógica de negocio (identidad, carta, pedidos, cocina, inventario, pagos, reportes)
 ├── controller/   endpoints REST
 ├── dto/          objetos de entrada y salida
@@ -219,9 +277,26 @@ La conexión se configura con las variables de entorno `DB_URL`, `DB_USER` y `DB
 con mucho tráfico), se podría añadir una caché o un almacén NoSQL para esa parte y pasar a un
 modelo híbrido.
 
-Las entidades se persisten con JPA (`ddl-auto=update`) y cada una tiene su repositorio en
-`repository/`. Las pruebas unitarias usan repositorios en memoria (`Fake...Repository`) para no
-depender de la base de datos.
+### Dominio y entidad separados
+
+La entidad representa la tabla; el dominio representa el negocio. Por eso viven en clases
+distintas y un mapper traduce entre ambas:
+
+| Capa | Paquete | Qué contiene |
+|---|---|---|
+| Dominio | `model/domain/Plato.java` | Reglas y comportamiento (`esValido()`, `cambiarDisponibilidad()`…). Sin anotaciones JPA |
+| Entidad | `persistence/entity/PlatoEntity.java` | Solo `@Entity`, `@Table`, `@Id`, `@Column`. Sin lógica |
+| Mapper | `persistence/mapper/PlatoEntityMapper.java` | MapStruct: `toDomain` / `toEntity` |
+| Repositorio JPA | `persistence/jpa/PlatoJpaRepository.java` | `JpaRepository<PlatoEntity, Long>` |
+| Adaptador | `persistence/adapter/PlatoRepositoryAdapter.java` | Implementa `repository/PlatoRepository` usando el repositorio JPA y el mapper |
+
+Los servicios solo conocen `repository/PlatoRepository` y objetos de dominio; nunca ven una
+entidad. Cambiar el esquema de la base de datos no toca el dominio. Los enums (`EstadoPedido`,
+`EstadoMesa`…) son valores del negocio y los comparten ambas capas.
+
+Las entidades se persisten con JPA (`ddl-auto=update`). Las pruebas unitarias de los servicios
+usan repositorios en memoria (`Fake...Repository`) para no depender de la base de datos, y los
+adaptadores se prueban contra H2 (`RepositoryAdapterTest`).
 
 ---
 
