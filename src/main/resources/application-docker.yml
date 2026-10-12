@@ -1,0 +1,19 @@
+# Perfil "docker": configuracion para correr en contenedor (docker compose y Azure).
+# Todo llega por variables de entorno; JWT_SECRET no tiene valor por defecto a proposito:
+# si falta, la aplicacion no arranca (fail-fast) en vez de usar un secreto conocido.
+spring:
+  datasource:
+    # DB_PARAMS permite agregar parametros JDBC, p. ej. "?sslmode=require" en Azure
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:brasaviva}${DB_PARAMS:}
+    username: ${DB_USER:brasaviva}
+    password: ${DB_PASSWORD:brasaviva}
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+server:
+  port: ${SERVER_PORT:8080}

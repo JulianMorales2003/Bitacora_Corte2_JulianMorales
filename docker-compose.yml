@@ -1,19 +1,64 @@
+# La Brasa Viva - stack completo: API + PostgreSQL (+ SonarQube opcional)
+#
+#   docker compose up --build -d                  -> API + base de datos
+#   docker compose up -d postgres                 -> solo la base (para correr la API desde el IDE)
+#   docker compose --profile tools up -d sonarqube -> agrega SonarQube (pesado, solo si lo necesitas)
+#
+# La API requiere un archivo .env con JWT_SECRET (ver .env.example); la base de datos no.
+
 services:
+  api:
+    build: .
+    image: brasaviva-api:local
+    container_name: brasaviva-api
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: brasaviva
+      DB_USER: brasaviva
+      DB_PASSWORD: ${DB_PASSWORD:-brasaviva}
+      JWT_SECRET: ${JWT_SECRET:-}   # obligatoria: si esta vacia la API no arranca (fail-fast)
+      SEED_PASSWORD: ${SEED_PASSWORD:-Brasa2026}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # La API no usa actuator: basta con comprobar que el puerto responde
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - brasaviva-net
+
   postgres:
     image: postgres:16
     container_name: brasaviva-db
     environment:
       POSTGRES_DB: brasaviva
       POSTGRES_USER: brasaviva
-      POSTGRES_PASSWORD: brasaviva
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-brasaviva}
     ports:
       - "5432:5432"
     volumes:
       - brasaviva-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brasaviva -d brasaviva"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brasaviva-net
 
   sonarqube:
     image: sonarqube:community
     container_name: brasaviva-sonar
+    profiles: ["tools"]
     ports:
       - "9000:9000"
     environment:
@@ -22,9 +67,15 @@ services:
       - sonar-data:/opt/sonarqube/data
       - sonar-extensions:/opt/sonarqube/extensions
       - sonar-logs:/opt/sonarqube/logs
+    networks:
+      - brasaviva-net
 
 volumes:
   brasaviva-data:
   sonar-data:
   sonar-extensions:
   sonar-logs:
+
+networks:
+  brasaviva-net:
+    driver: bridge

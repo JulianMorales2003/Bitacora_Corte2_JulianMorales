@@ -1,0 +1,13 @@
+.git
+.gitignore
+.github
+.idea
+.vscode
+.mvn
+target/
+docs/
+scripts/
+*.md
+*.p12
+*.jks
+.env
