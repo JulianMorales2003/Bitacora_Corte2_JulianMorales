@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -98,9 +99,11 @@ public class PedidoController {
             @ApiResponse(responseCode = "200", description = "Estado actualizado"),
             @ApiResponse(responseCode = "400", description = "Estado con formato invalido"),
             @ApiResponse(responseCode = "404", description = "El pedido no existe"),
+            @ApiResponse(responseCode = "403", description = "Tu rol no puede mover el pedido a ese estado"),
             @ApiResponse(responseCode = "422", description = "Transicion invalida o parrilla llena")
     })
     @PatchMapping("/{id}/estado")
+    @PreAuthorize("@permisosPedido.puedeCambiarA(#dto.estado(), authentication)")
     public ResponseEntity<PedidoResponseDTO> cambiarEstado(@PathVariable Long id,
                                                            @RequestBody @Valid CambioEstadoRequestDTO dto) {
         log.info("PATCH /api/v1/pedidos/{}/estado - {}", id, dto.estado());

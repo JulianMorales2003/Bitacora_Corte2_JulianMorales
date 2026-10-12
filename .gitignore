@@ -5,3 +5,7 @@ target/
 *.iml
 .vscode/
 .DS_Store
+
+*.p12
+*.jks
+.env

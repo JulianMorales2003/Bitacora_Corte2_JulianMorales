@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -50,6 +52,29 @@ public class GlobalExceptionHandler {
                                                                  HttpServletRequest req) {
         log.warn("Solicitud inválida: {}", ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, List.of());
+    }
+
+    // ---------- Seguridad ----------
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
+                                                            HttpServletRequest req) {
+        // Sin este handler, un 403 lanzado por @PreAuthorize caeria en el fallback y saldria como 500
+        log.warn("403 Acceso denegado a {} {}", req.getMethod(), req.getRequestURI());
+        return build(HttpStatus.FORBIDDEN, "No tienes permisos para realizar esta acción", req, List.of());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex,
+                                                              HttpServletRequest req) {
+        // Mensaje generico: no revela si el email existe (evita enumeracion de usuarios)
+        return build(HttpStatus.UNAUTHORIZED, "Credenciales inválidas", req, List.of());
+    }
+
+    @ExceptionHandler(DemasiadosIntentosException.class)
+    public ResponseEntity<ErrorResponse> handleDemasiadosIntentos(DemasiadosIntentosException ex,
+                                                                  HttpServletRequest req) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), req, List.of());
     }
 
     // ---------- Validación de input (@Valid) ----------

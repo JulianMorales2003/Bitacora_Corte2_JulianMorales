@@ -1,4 +1,4 @@
-# LA BRASA VIVA 
+# LA BRASA VIVA
 
 **Bitácora Corte 2 — Desarrollo y Operaciones de Software (DOSW)**
 Escuela Colombiana de Ingeniería Julio Garavito
@@ -52,8 +52,8 @@ También disponible en Excel: [`docs/roles-permisos.xlsx`](docs/roles-permisos.x
 | Ver reportes de venta | ❌ | ❌ | ❌ | ✅ |
 | Administrar usuarios | ❌ | ❌ | ❌ | ✅ |
 
-> Los roles están definidos a nivel de diseño. La autenticación y autorización por rol se
-> implementarán en una siguiente etapa.
+> La autenticación (JWT) y la autorización por rol ya están implementadas: ver la sección
+> [Seguridad](#seguridad) para la matriz endpoint por endpoint.
 
 ### Reglas de negocio
 
@@ -241,6 +241,7 @@ src/main/java/edu/escuelaing/dosw/brasaviva
 ├── controller/   endpoints REST
 ├── dto/          objetos de entrada y salida
 ├── client/       integraciones externas (pasarela, facturación DIAN, notificaciones)
+├── security/     JWT, filtro de autenticación, handlers 401/403 y permisos por rol
 ├── exception/    excepciones de las reglas de negocio
 └── config/       configuración
 ```
@@ -248,7 +249,7 @@ src/main/java/edu/escuelaing/dosw/brasaviva
 ## Tecnologías
 
 Java 21 · Maven · Spring Boot 3.3.4 · Spring Data JPA · PostgreSQL · MapStruct · Lombok ·
-springdoc-openapi (Swagger) · JUnit 5 · Mockito · JaCoCo · H2 (pruebas)
+Spring Security · JWT (jjwt) · OAuth2 (Google) · springdoc-openapi (Swagger) · JUnit 5 · Mockito · JaCoCo · H2 (pruebas)
 
 ## Ejecución
 
@@ -304,6 +305,21 @@ adaptadores se prueban contra H2 (`RepositoryAdapterTest`).
 
 La API agrupa sus endpoints por área funcional del restaurante. Cada grupo corresponde a un
 `@Tag` de Swagger y a un controlador independiente:
+
+### Autenticación (`/api/v1/auth`) — acceso a la API
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| POST | `/api/v1/auth/login` | Iniciar sesión con email y contraseña; devuelve un JWT |
+| POST | `/api/v1/auth/register` | Registrarse como cliente (siempre crea rol `CLIENTE`) |
+| GET | `/api/v1/auth/me` | Ver el usuario del token actual |
+
+### Usuarios (`/api/v1/usuarios`) — solo administrador
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| GET | `/api/v1/usuarios` | Ver todos los usuarios (sin contraseñas) |
+| POST | `/api/v1/usuarios` | Crear un usuario eligiendo su rol (`MESERO`, `PARRILLERO`, `ADMIN`, `CLIENTE`) |
 
 ### Menú (`/api/v1/menu`) — consulta del cliente
 
@@ -407,6 +423,229 @@ descripción de la regla de negocio asociada y los códigos de respuesta esperad
 **Ejemplo de manejo de errores y validaciones (422 Unprocessable Entity)**
 
 ![Swagger ejemplo 422](docs/uml/swagger-ejemplo-422.png)
+
+---
+
+## Seguridad
+
+La API usa **Spring Security con JWT** (autenticación *stateless*): el cliente inicia sesión una vez,
+recibe un token firmado y lo envía en cada petición. Cada endpoint exige el rol que le corresponde
+según la matriz de roles definida en el análisis (ver [Roles y permisos](#roles-y-permisos)).
+
+| Mecanismo | Estado | Dónde |
+|---|---|---|
+| Roles y autorización por endpoint | Implementado | `config/SecurityConfig`, `@PreAuthorize` |
+| Contraseñas con BCrypt | Implementado | `config/SecurityBeansConfig`, `UsuarioServiceImpl` |
+| JWT (login, filtro, expiración 1 h) | Implementado | `security/JwtUtil`, `security/JwtAuthFilter`, `AuthController` |
+| HTTP Basic | Reemplazado por JWT (ver nota) | — |
+| OAuth2 "Ingresar con Google" | Implementado, activo con el perfil `oauth2` | `security/OAuth2SuccessHandler` |
+| HTTPS (SSL/TLS) | Implementado, activo con el perfil `ssl` | `application-ssl.properties` |
+| CORS | Implementado | `config/CorsConfig` |
+| Headers de seguridad (CSP, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection) | Implementado | `config/SecurityConfig` |
+| Límite de intentos de login (5 fallos / 15 min → 429) | Implementado | `security/LoginAttemptService` |
+| CSRF | Deshabilitado a propósito (API stateless con JWT en header) | `config/SecurityConfig` |
+
+> **Nota sobre HTTP Basic.** La guía lo presenta como primer paso para entender el flujo de autenticación
+> y luego lo reemplaza por JWT. La versión final de la API usa únicamente JWT (y opcionalmente OAuth2),
+> porque Basic reenvía la contraseña en cada petición.
+
+### Flujo de autenticación con JWT
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente / Swagger
+    participant F as JwtAuthFilter
+    participant A as AuthController
+    participant U as UsuarioDetailsService
+    participant S as SecurityConfig (reglas por rol)
+    participant API as Controlador del recurso
+
+    C->>A: POST /api/v1/auth/login con email y password
+    A->>U: cargar usuario por email
+    U-->>A: usuario + hash BCrypt
+    A->>A: BCrypt.matches + límite de intentos
+    A-->>C: 200 con el token JWT
+    Note over C: Guarda el token
+
+    C->>F: GET /api/v1/pedidos con header Authorization Bearer TOKEN
+    F->>F: verifica firma y expiración
+    F->>U: recarga el usuario (rol vigente)
+    F->>S: usuario autenticado en el contexto
+    alt Rol permitido
+        S->>API: pasa la petición
+        API-->>C: 200 OK
+    else Rol sin permiso
+        S-->>C: 403 Forbidden
+    end
+    Note over F,C: Sin token, token inválido o vencido → 401 Unauthorized
+```
+
+### Roles y permisos por endpoint
+
+Cada fila corresponde a una regla de `SecurityConfig`. Los roles son `CLIENTE`, `MESERO`,
+`PARRILLERO` (cocina) y `ADMIN`, los mismos de la matriz de roles del análisis.
+
+| Endpoint | Método | ¿Quién puede? | Regla en Spring |
+|---|---|---|---|
+| `/api/v1/auth/login`, `/api/v1/auth/register` | POST | Público | `permitAll()` |
+| `/api/v1/auth/me` | GET | Cualquier usuario autenticado | `authenticated()` |
+| `/api/v1/menu`, `/api/v1/menu/{id}` | GET | Público | `permitAll()` |
+| `/api/v1/platos`, `/api/v1/platos/{id}` | GET | Mesero, parrillero, admin | `hasAnyRole("MESERO","PARRILLERO","ADMIN")` |
+| `/api/v1/platos` | POST | Admin | `hasRole("ADMIN")` |
+| `/api/v1/platos/{id}` | PUT, DELETE | Admin | `hasRole("ADMIN")` |
+| `/api/v1/platos/{id}/disponible` | PATCH | Parrillero, admin | `hasAnyRole("PARRILLERO","ADMIN")` |
+| `/api/v1/pedidos` | POST | Cliente, mesero | `hasAnyRole("CLIENTE","MESERO")` |
+| `/api/v1/pedidos/{id}/items` | POST | Cliente, mesero | `hasAnyRole("CLIENTE","MESERO")` |
+| `/api/v1/pedidos`, `/pedidos/cocina`, `/pedidos/mesa/{idMesa}` | GET | Mesero, parrillero, admin | `hasAnyRole("MESERO","PARRILLERO","ADMIN")` |
+| `/api/v1/pedidos/{id}` | GET | Todos los roles autenticados | `hasAnyRole(...)` |
+| `/api/v1/pedidos/{id}/estado` | PATCH | Depende del estado destino (ver abajo) | URL: `hasAnyRole("MESERO","PARRILLERO","ADMIN")` + `@PreAuthorize` |
+| `/api/v1/pedidos/{id}` | DELETE | Mesero, admin | `hasAnyRole("MESERO","ADMIN")` |
+| `/api/v1/mesas`, `/api/v1/mesas/{id}` | GET | Mesero, parrillero, admin | `hasAnyRole("MESERO","PARRILLERO","ADMIN")` |
+| `/api/v1/mesas` | POST | Admin | `hasRole("ADMIN")` |
+| `/api/v1/cuentas`, `/api/v1/cuentas/{id}/pago` | POST | Mesero | `hasRole("MESERO")` |
+| `/api/v1/cuentas/{id}`, `/cuentas/mesa/{idMesa}` | GET | Mesero, admin | `hasAnyRole("MESERO","ADMIN")` |
+| `/api/v1/reservas/**` | todos | Cliente, mesero, admin | `hasAnyRole("CLIENTE","MESERO","ADMIN")` |
+| `/api/v1/parqueadero/**` | todos | Mesero, admin | `hasAnyRole("MESERO","ADMIN")` |
+| `/api/v1/reportes/**` | GET | Admin | `hasRole("ADMIN")` |
+| `/api/v1/usuarios/**` | GET, POST | Admin | `hasRole("ADMIN")` + `@PreAuthorize` en el controlador |
+| `/swagger-ui/**`, `/v3/api-docs/**` | GET | Público (apagable en producción) | `permitAll()` |
+| Cualquier otro endpoint | — | Usuario autenticado | `authenticated()` |
+
+**Cambio de estado de un pedido** (`PATCH /api/v1/pedidos/{id}/estado`): la URL es la misma para
+todos, así que además se valida el estado destino con `@PreAuthorize` (`security/PermisosPedido`):
+
+| Estado destino | Rol permitido |
+|---|---|
+| `EN_PREPARACION`, `LISTO` | Parrillero |
+| `ENTREGADO` | Mesero |
+| `CANCELADO` | Mesero, admin |
+
+### Usuarios de ejemplo
+
+Al arrancar con la base vacía se crea un usuario por rol (`UsuarioInitializer`). La contraseña de
+desarrollo es `Brasa2026` (configurable con `SEED_PASSWORD`).
+
+| Rol | Email |
+|---|---|
+| ADMIN | `admin@brasaviva.com` |
+| MESERO | `mesero@brasaviva.com` |
+| PARRILLERO | `parrillero@brasaviva.com` |
+| CLIENTE | `cliente@brasaviva.com` |
+
+> Son credenciales **solo para desarrollo**. En producción se desactivan con `SEED_USUARIOS=false`.
+
+### Cómo probar
+
+```bash
+# 1. Iniciar sesión y guardar el token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@brasaviva.com","password":"Brasa2026"}' | jq -r .token)
+
+# 2. Llamar un endpoint protegido
+curl -i http://localhost:8080/api/v1/reportes/resumen -H "Authorization: Bearer $TOKEN"   # 200
+
+# 3. Sin token -> 401
+curl -i http://localhost:8080/api/v1/reportes/resumen
+
+# 4. Con el rol incorrecto -> 403 (el cliente no puede ver reportes)
+```
+
+En Swagger UI (`/swagger-ui/index.html`): ejecutar `POST /api/v1/auth/login`, copiar el campo `token`,
+pulsar **Authorize** e ingresarlo.
+
+### Variables de configuración
+
+| Variable | Para qué sirve | Valor por defecto (solo desarrollo) |
+|---|---|---|
+| `JWT_SECRET` | Secreto de firma del JWT, en Base64 y de al menos 256 bits | Valor de desarrollo en `application.properties` |
+| `JWT_EXPIRATION_MS` | Vigencia del token | `3600000` (1 hora) |
+| `CORS_ORIGENES` | Orígenes (frontends) permitidos, separados por coma | `http://localhost:3000` |
+| `SEED_USUARIOS` | Crear usuarios de ejemplo al arrancar | `true` |
+| `SEED_PASSWORD` | Contraseña de los usuarios de ejemplo | `Brasa2026` |
+| `SWAGGER_ENABLED` | Mostrar Swagger UI y `/v3/api-docs` | `true` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Credenciales OAuth2 (perfil `oauth2`) | — |
+| `SSL_KEYSTORE_PASSWORD` | Clave del certificado (perfil `ssl`) | — |
+
+> **En producción** hay que definir `JWT_SECRET` (el valor por defecto está en el repositorio y por
+> tanto no es secreto), `SEED_USUARIOS=false` y `SWAGGER_ENABLED=false`.
+
+### HTTPS (SSL/TLS)
+
+```bash
+export SSL_KEYSTORE_PASSWORD='<una-clave>'
+./scripts/generar-certificado.sh            # crea src/main/resources/restaurante.p12 (ignorado por Git)
+mvn spring-boot:run -Dspring-boot.run.profiles=ssl
+# https://localhost:8443/swagger-ui/index.html  (el navegador avisará: el certificado es autofirmado)
+```
+
+El certificado y su clave no se suben a Git (`*.p12` está en `.gitignore`). En producción se usa un
+certificado real (Let's Encrypt o el de Azure) inyectado como secreto.
+
+### Login con Google (OAuth2)
+
+1. En [Google Cloud Console](https://console.cloud.google.com) → *APIs y servicios* → *Credenciales* →
+   crear un *ID de cliente OAuth* de tipo *Aplicación web*.
+2. Agregar como URI de redirección autorizada: `http://localhost:8080/login/oauth2/code/google`.
+3. Arrancar con el perfil `oauth2`:
+
+```bash
+GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... mvn spring-boot:run -Dspring-boot.run.profiles=oauth2
+```
+
+4. Abrir `http://localhost:8080/oauth2/authorization/google`. Tras autenticarse con Google, la API crea
+   el usuario como `CLIENTE` (si no existía) y devuelve un JWT propio del sistema.
+
+### Evidencias de seguridad
+
+**Login exitoso en Swagger (request y respuesta con el JWT)**
+
+![Login exitoso](docs/seguridad/01-login-exitoso.png)
+
+**Botón Authorize con el token ingresado**
+
+![Swagger Authorize](docs/seguridad/02-swagger-authorize.png)
+
+**401 al llamar sin token**
+
+![401 sin token](docs/seguridad/03-401-sin-token.png)
+
+**403 al llamar con un rol incorrecto**
+
+![403 rol incorrecto](docs/seguridad/04-403-rol-incorrecto.png)
+
+**Headers de seguridad en las respuestas**
+
+![Headers de seguridad](docs/seguridad/05-headers-seguridad.png)
+
+**Contraseñas hasheadas en la base de datos**
+
+![Password hasheado](docs/seguridad/06-password-hasheado.png)
+
+**Pruebas de seguridad en verde (`mvn test`)**
+
+![Pruebas de seguridad](docs/seguridad/07-mvn-test-seguridad.png)
+
+Las pruebas viven en `src/test/java/.../security/` y `service/` (`SecurityTest`, `JwtUtilTest`,
+`LoginAttemptServiceTest`, `PermisosPedidoTest`, `UsuarioServiceTest`, `AuthServiceTest`).
+`SecurityTest` levanta el contexto completo con H2 y verifica: login correcto e incorrecto, 429 por
+fuerza bruta, 401 sin token / con token inválido / vencido / con firma falsa, 403 por rol, 201 con el
+rol correcto, cambio de estado según rol, registro, contraseña hasheada, headers de seguridad y CORS.
+
+### Checklist OWASP Top 10
+
+| # | Riesgo | ¿Aplica? | Cómo se mitiga | Pendiente / límite |
+|---|---|---|---|---|
+| A01 | Control de acceso roto | Sí | Reglas por rol en `SecurityConfig` + `@PreAuthorize`; el registro público nunca crea roles altos; pruebas de 403 por rol | No hay control de **propiedad del objeto**: un `CLIENTE` autenticado puede consultar `GET /pedidos/{id}` de otro cliente (los pedidos se asocian a una mesa, no a un usuario) |
+| A02 | Fallas criptográficas | Sí | Contraseñas con BCrypt; JWT firmado con HMAC y secreto de ≥ 256 bits (la app no arranca con uno menor); HTTPS con el perfil `ssl` | El secreto por defecto está en el repositorio: en producción se debe sobrescribir con `JWT_SECRET`. El certificado de desarrollo es autofirmado |
+| A03 | Inyección | Sí | Solo métodos derivados de Spring Data JPA; no hay `@Query` ni SQL concatenado; validación de entrada con Bean Validation | — |
+| A04 | Diseño inseguro | Sí | Los `ResponseDTO` no incluyen contraseña ni hash (`UsuarioResponseDTO`); `@ToString.Exclude` en el campo password; el login no revela si el email existe | — |
+| A05 | Mala configuración | Sí | `server.error.include-stacktrace=never`; el fallback de errores devuelve un mensaje genérico; secretos por variable de entorno; `*.p12` y `.env` en `.gitignore`; Swagger apagable con `SWAGGER_ENABLED=false` | Swagger queda público por defecto (útil en desarrollo); hay que apagarlo en producción |
+| A06 | Componentes vulnerables | Sí | Spring Boot 3.3.4 y dependencias desde Maven Central | Pendiente ejecutar el análisis: `mvn org.owasp:dependency-check-maven:check` (la guía menciona `mvn dependency:check`, que no es un goal real de Maven) |
+| A07 | Fallas de autenticación | Sí | JWT con expiración (401, no 500, cuando vence); límite de 5 intentos fallidos por email en 15 min (429); política de contraseña (8–72 caracteres con mayúscula, minúscula y número) | El límite es en memoria (una sola instancia) y por email, no por IP. No hay *refresh token* ni cierre de sesión que invalide el token antes de que venza |
+| A08 | Integridad de software y datos | Sí | La firma del JWT se verifica en cada petición; dependencias de Maven Central | — |
+| A09 | Logging y monitoreo | Sí | Se registran los logins fallidos y bloqueados, los 401, los 403 y los tokens inválidos o vencidos (sin escribir contraseñas ni tokens) | Los logs van a consola; no hay alertas ni monitoreo centralizado |
+| A10 | SSRF | No | Ningún endpoint recibe URLs como entrada | — |
 
 ---
 
